@@ -24,7 +24,9 @@ mongoose.connect(process.env.DB_URI)
 
 
 
-
+app.get("/", (req, res)=>{
+    res.send("Application working fine")
+})
 
 
 
