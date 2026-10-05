@@ -44,7 +44,9 @@ const registerUser = async (req, res) => {
       firstname,
       lastname,
       email,
-      tag: tag.trim().length < 1 && tag,
+     ...(tag&&{
+       tag: tag.trim().length < 1 && tag,
+     }),
       password: hashPass,
       accountNumber: generatedAccount,
       ...(photo && {
