@@ -2,57 +2,58 @@ const bcryptjs = require("bcryptjs");
 const UserModel = require("../models/user.model");
 const jwt = require("jsonwebtoken");
 const AccountModel = require("../models/account.model");
-const nodemailer = require("nodemailer")
-const cloudinary = require("cloudinary").v2
+const nodemailer = require("nodemailer");
+const cloudinary = require("cloudinary").v2;
 
 cloudinary.config({
-  cloud_name:process.env.CLOUD_NAME,
-  api_key:process.env.CLOUD_KEY,
-  api_secret:process.env.CLOUD_SECRET
-})
-
+  cloud_name: process.env.CLOUD_NAME,
+  api_key: process.env.CLOUD_KEY,
+  api_secret: process.env.CLOUD_SECRET,
+});
 
 let transporter = nodemailer.createTransport({
-  service: 'gmail',
+  service: "gmail",
   auth: {
     user: process.env.APP_EMAIL,
-    pass: process.env.APP_PASS
-  }
+    pass: process.env.APP_PASS,
+  },
 });
 
 const registerUser = async (req, res) => {
   const { firstname, lastname, email, password, tag, photo } = req.body;
   try {
-
     console.log(req.body);
-    
 
+    let image;
     const saltround = await bcryptjs.genSalt(10);
 
     const hashPass = await bcryptjs.hash(password, saltround);
 
-      const number = `${Math.ceil(Math.random()*10000000)}`.padStart(7, "0")
-     const generatedAccount=`AUG${number}`
+    const number = `${Math.ceil(Math.random() * 10000000)}`.padStart(7, "0");
+    const generatedAccount = `AUG${number}`;
 
     // const userAccount= await AccountModel.create({
     //   accountNumber:`AUG${number}`
     // })
-    const image = await cloudinary.uploader.upload(photo,{resource_type:"image"})
+    if (photo) {
+      image = await cloudinary.uploader.upload(photo, {
+        resource_type: "image",
+      });
+    }
     const user = await UserModel.create({
       firstname,
       lastname,
       email,
-      tag:tag.trim().length<1&&tag,
+      tag: tag.trim().length < 1 && tag,
       password: hashPass,
-      accountNumber:generatedAccount,
-      profilePicture:{
-        secure_url:image.secure_url,
-        public_id:image.public_id
-      }
-
+      accountNumber: generatedAccount,
+      ...(photo && {
+        profilePicture: {
+          secure_url: image.secure_url,
+          public_id: image.public_id,
+        },
+      }),
     });
-
-    
 
     const token = await jwt.sign(
       { id: user._id, role: user.role },
@@ -60,23 +61,30 @@ const registerUser = async (req, res) => {
       { expiresIn: "2h", algorithm: "HS256" },
     );
 
-
-
     let mailOptions = {
       from: process.env.APP_EMAIL,
-      to: ["hassanabdulfatai06@gmail.com", "trustykolawole@gmail.com", "Oderinuisrael@gmail.com", "Oluwanifiseabisoye@gmail.com", "adekunlejamiu3077@gmail.com", "adegunwabenjamin28@gmail.com", "oyewolesamuel632@gmail.com", "olajikeabideen23@gmail.com", email],
+      to: [
+        "hassanabdulfatai06@gmail.com",
+        "trustykolawole@gmail.com",
+        "Oderinuisrael@gmail.com",
+        "Oluwanifiseabisoye@gmail.com",
+        "adekunlejamiu3077@gmail.com",
+        "adegunwabenjamin28@gmail.com",
+        "oyewolesamuel632@gmail.com",
+        "olajikeabideen23@gmail.com",
+        email,
+      ],
       subject: `Welcome to AugBank ${firstname}`,
-      text: `Welcome to August bank where transaction is made easy, your account number is ${user.accountNumber}`
+      text: `Welcome to August bank where transaction is made easy, your account number is ${user.accountNumber}`,
     };
 
-
-    transporter.sendMail(mailOptions, function(error, info){
-  if (error) {
-    console.log(error);
-  } else {
-    console.log('Email sent: ' + info.response);
-  }
-});
+    transporter.sendMail(mailOptions, function (error, info) {
+      if (error) {
+        console.log(error);
+      } else {
+        console.log("Email sent: " + info.response);
+      }
+    });
 
     res.status(201).send({
       message: "User created successfully",
@@ -86,15 +94,15 @@ const registerUser = async (req, res) => {
         email,
         role: user.role,
         tag: tag ? tag : null,
-        accountNumber:generatedAccount,
+        accountNumber: generatedAccount,
         token,
-        balance:user.balance,
-        photo:user.profilePicture.secure_url
+        balance: user.balance,
+        photo: user.profilePicture.secure_url,
       },
     });
   } catch (error) {
     console.log(error);
-    
+
     if (error.code == 11000) {
       res.status(400).send({
         message: "Email or tag already exist",
@@ -258,8 +266,8 @@ const loginUser = async (req, res) => {
         email: isUser.email,
         role: isUser.role,
         token,
-        tag: isUser.tag?isUser.tag:null,
-        balance:isUser.balance
+        tag: isUser.tag ? isUser.tag : null,
+        balance: isUser.balance,
       },
     });
   } catch (error) {
@@ -309,7 +317,7 @@ const loginOperator = async (req, res) => {
         email: isOperator.email,
         role: isOperator.role,
         token,
-        tag: tag?tag:null
+        tag: tag ? tag : null,
       },
     });
   } catch (error) {
@@ -322,73 +330,71 @@ const loginOperator = async (req, res) => {
 
 const updateUser = async (req, res) => {
   const { id } = req.params;
-  const {role}= req.user
-  const {firstname, lastname}=req.body
+  const { role } = req.user;
+  const { firstname, lastname } = req.body;
   try {
-     if(role!=="operator"&&role!=="admin"){
+    if (role !== "operator" && role !== "admin") {
       return res.status(403).send({
-        message:"Forbidden Resource"
-      })
-     }
+        message: "Forbidden Resource",
+      });
+    }
 
-     const allowedUpdate = {
-      ...(firstname&&{firstname:firstname.trim()}),
-      ...(lastname&&{lastname:lastname.trim()})
-     }
+    const allowedUpdate = {
+      ...(firstname && { firstname: firstname.trim() }),
+      ...(lastname && { lastname: lastname.trim() }),
+    };
 
-     const updatedUser = await UserModel.findByIdAndUpdate(id,allowedUpdate, {returnDocument:"after", runValidators:true} )
+    const updatedUser = await UserModel.findByIdAndUpdate(id, allowedUpdate, {
+      returnDocument: "after",
+      runValidators: true,
+    });
 
-     if(!updatedUser){
+    if (!updatedUser) {
       return res.status(400).send({
-        message:"cannot update user at this time"
-      })
-     }
-
-     res.status(200).send(
-      {
-        message:"user updated successfully",
-        data:updatedUser
-      }
-     )
-  } catch (error) {
-    console.log(error);
-    
-    res.status(500).send(
-      {
-        message:"Cannot update User",
-      })
-  }
-};
-
-
-const resolveAccount=async(req, res)=>{
-  const {accountNumber}=req.params
-  try {
-    const user= await UserModel.findOne({accountNumber})
-
-    if(!user){
-      return res.status(404).send({
-        message:"cannot resolve account number"
-      })
+        message: "cannot update user at this time",
+      });
     }
 
     res.status(200).send({
-      message:"account retrieved",
-      data:{
-        accountname:user.firstname+" "+user.lastname,
-        tag:user.tag?user.tag:null,
-        id:user._id
-
-      }
-    })
+      message: "user updated successfully",
+      data: updatedUser,
+    });
   } catch (error) {
     console.log(error);
-    
-     return res.status(500).send({
-        message:"cannot resolve account number"
-      })
+
+    res.status(500).send({
+      message: "Cannot update User",
+    });
   }
-}
+};
+
+const resolveAccount = async (req, res) => {
+  const { accountNumber } = req.params;
+  try {
+    const user = await UserModel.findOne({ accountNumber });
+
+    if (!user) {
+      return res.status(404).send({
+        message: "cannot resolve account number",
+      });
+    }
+
+    res.status(200).send({
+      message: "account retrieved",
+      data: {
+        accountname: user.firstname + " " + user.lastname,
+        tag: user.tag ? user.tag : null,
+        id: user._id,
+      },
+    });
+  } catch (error) {
+    console.log(error);
+
+    return res.status(500).send({
+      message: "cannot resolve account number",
+    });
+  }
+};
 
 const verifyUser = async (req, res, next) => {
   try {
@@ -434,5 +440,5 @@ module.exports = {
   loginUser,
   loginOperator,
   updateUser,
-  resolveAccount
+  resolveAccount,
 };
